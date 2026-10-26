@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Timer BJJ - Thor Jiu-Jitsu</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700;800&family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    
+    body {
+      font-family: 'Inter', sans-serif;
+      overflow: hidden;
+      transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .font-digital {
+      font-family: 'Chakra Petch', sans-serif;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Modos de Estado com Alto Contraste */
+    body.mode-idle {
+      background-color: #0b0f17;
+    }
+    body.mode-prep {
+      background-color: #854d0e; /* Âmbar / Laranja Queimado */
+    }
+    body.mode-work {
+      background-color: #064e3b; /* Verde Escuro Intenso */
+    }
+    body.mode-rest {
+      background-color: #7f1d1d; /* Vermelho Escuro */
+    }
+    body.mode-paused {
+      background-color: #111827; /* Cinza Neutro Escuro */
+    }
+
+    /* Efeitos de Foco aprimorados para Navegação com Controle Remoto D-PAD */
+    button:focus, input:focus, label:focus-within {
+      outline: none;
+      ring: 4px solid #38bdf8;
+      box-shadow: 0 0 25px rgba(56, 189, 248, 0.9), 0 0 50px rgba(56, 189, 248, 0.4);
+      transform: scale(1.04);
+      z-index: 30;
+    }
+
+    /* Animação de pulso no aviso de 1 minuto */
+    @keyframes warningFlash {
+      0%, 100% { opacity: 1; filter: drop-shadow(0 0 0 rgba(250, 204, 21, 0)); }
+      50% { opacity: 0.8; filter: drop-shadow(0 0 45px rgba(250, 204, 21, 0.9)); color: #fde047; }
+    }
+    .flash-warning {
+      animation: warningFlash 0.7s infinite ease-in-out;
+    }
+
+    /* Marca d'água suave do logo */
+    .watermark-logo {
+      opacity: 0.12;
+      filter: drop-shadow(0 0 30px rgba(0,0,0,0.8));
+      pointer-events: none;
+    }
+
+    /* Ocultar spinners de input number */
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { 
+      -webkit-appearance: none; 
+      margin: 0; 
+    }
+    input[type=number] {
+      -moz-appearance: textfield;
+    }
+  </style>
+</head>
+<body class="mode-idle text-white h-screen w-screen flex flex-col justify-between p-3 md:p-5 lg:p-6 select-none relative">
+
+  <!-- CABEÇALHO: Info de Rounds, Emblema do CT THOR e Status -->
+  <header class="w-full flex justify-between items-center px-4 py-2 bg-black/40 backdrop-blur-md rounded-2xl border border-white/10 shadow-lg relative z-20">
+    <div class="flex items-center gap-3 md:gap-5 min-w-[200px]">
+      <span class="text-xs md:text-sm font-bold tracking-widest uppercase text-gray-400">ROUNDS</span>
+      <div id="round-display" class="font-digital text-2xl md:text-4xl lg:text-5xl font-extrabold tracking-wider text-white">
+        1 <span class="text-white/40 text-lg md:text-2xl">/</span> <span id="total-rounds-badge">10</span>
+      </div>
+    </div>
+
+    <!-- LOGO FIXO VETORIAL: THOR BRAZILIAN JIU-JITSU (CABO FRIO - RJ) -->
+    <div class="flex items-center justify-center gap-3 select-none pointer-events-none">
+      <div class="relative drop-shadow-[0_4px_18px_rgba(0,0,0,0.9)]">
+        <svg class="h-16 md:h-20 lg:h-24 w-16 md:w-20 lg:w-24" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <!-- Caminhos circulares para os textos curvados -->
+            <path id="path-top-text" d="M 75 250 A 175 175 0 0 1 425 250" fill="none"/>
+            <path id="path-bottom-text" d="M 95 250 A 155 155 0 0 0 405 250" fill="none"/>
+
+            <!-- Degradê metálico do letreiro THOR -->
+            <linearGradient id="thor-metal" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#ffffff" />
+              <stop offset="48%" stop-color="#f8fafc" />
+              <stop offset="50%" stop-color="#cbd5e1" />
+              <stop offset="52%" stop-color="#94a3b8" />
+              <stop offset="100%" stop-color="#e2e8f0" />
+            </linearGradient>
+
+            <filter id="badge-shadow" x="-10%" y="-10%" width="120%" height="120%">
+              <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.8"/>
+            </filter>
+          </defs>
+
+          <!-- Borda externa preta do escudo -->
+          <circle cx="250" cy="250" r="240" fill="#0f0f10" stroke="#ffffff" stroke-width="3" filter="url(#badge-shadow)" />
+
+          <!-- Texto superior curvado: BRAZILIAN JIU JITSU -->
+          <text fill="#ffffff" font-family="'Inter', sans-serif" font-weight="900" font-size="34" letter-spacing="7">
+            <textPath href="#path-top-text" startOffset="50%" text-anchor="middle">
+              BRAZILIAN JIU JITSU
+            </textPath>
+          </text>
+
+          <!-- Texto inferior curvado: CABO FRIO - RJ -->
+          <text fill="#ffffff" font-family="'Inter', sans-serif" font-weight="900" font-size="32" letter-spacing="8">
+            <textPath href="#path-bottom-text" startOffset="50%" text-anchor="middle">
+              CABO FRIO - RJ
+            </textPath>
+          </text>
+
+          <!-- Círculo interno vermelho vivo -->
+          <circle cx="250" cy="250" r="162" fill="#d91b24" stroke="#000000" stroke-width="4" />
+
+          <!-- Detalhe superior do miolo: BJJ -->
+          <text x="250" y="168" text-anchor="middle" fill="#ffffff" font-family="'Inter', sans-serif" font-weight="900" font-size="20" letter-spacing="4">
+            BJJ
+          </text>
+
+          <!-- Detalhe inferior do miolo: SINCE 2003 -->
+          <text x="250" y="338" text-anchor="middle" fill="#ffffff" font-family="'Inter', sans-serif" font-weight="900" font-size="19" letter-spacing="3">
+            SINCE 2003
+          </text>
+
+          <!-- Faixa central preta horizontal -->
+          <rect x="20" y="186" width="460" height="128" rx="6" fill="#0a0a0c" stroke="#ffffff" stroke-width="2.5" />
+
+          <!-- Tipografia THOR estilizada com chanfro, contorno e peso atlético -->
+          <!-- Sombra e contorno externo do texto -->
+          <text x="250" y="286" text-anchor="middle" font-family="'Chakra Petch', 'Impact', sans-serif" font-weight="900" font-size="124" letter-spacing="4" fill="none" stroke="#000000" stroke-width="14" stroke-linejoin="miter">
+            THOR
+          </text>
+          <!-- Preenchimento com degradê cromado/metálico -->
+          <text x="250" y="286" text-anchor="middle" font-family="'Chakra Petch', 'Impact', sans-serif" font-weight="900" font-size="124" letter-spacing="4" fill="url(#thor-metal)">
+            THOR
+          </text>
+        </svg>
+      </div>
+
+      <div class="hidden xl:flex flex-col text-left leading-tight">
+        <span class="text-xs uppercase tracking-widest font-black text-red-500">THOR BJJ</span>
+        <span class="text-[10px] text-gray-300 tracking-wider">CABO FRIO - RJ</span>
+      </div>
+    </div>
+
+    <!-- Status Badge e Indicador de 1 min -->
+    <div class="flex items-center gap-3 min-w-[200px] justify-end">
+      <div id="status-badge" class="px-5 py-2 rounded-xl text-lg md:text-2xl lg:text-3xl font-black tracking-wider uppercase bg-white/10 border border-white/20 text-white shadow-inner">
+        PRONTO
+      </div>
+
+      <div id="sound-indicator" class="hidden sm:flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-2 rounded-xl text-xs md:text-sm font-bold text-gray-300">
+        <svg id="bell-icon" class="w-4 h-4 md:w-5 md:h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"/>
+        </svg>
+        <span id="sound-indicator-text" class="hidden md:inline">1 MIN: ON</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- CENTRO: Display do Cronômetro com Marca d'Água do CT -->
+  <main class="flex-1 flex flex-col items-center justify-center relative my-auto w-full overflow-hidden">
+    <!-- Marca d'água centralizada vetorial permanente -->
+    <div class="watermark-logo absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[72vh] max-w-[65vw] aspect-square flex items-center justify-center z-0">
+      <svg class="w-full h-full" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="250" cy="250" r="240" fill="#0f0f10" stroke="#ffffff" stroke-width="4" />
+        <text fill="#ffffff" font-family="'Inter', sans-serif" font-weight="900" font-size="34" letter-spacing="7">
+          <textPath href="#path-top-text" startOffset="50%" text-anchor="middle">
+            BRAZILIAN JIU JITSU
+          </textPath>
+        </text>
+        <text fill="#ffffff" font-family="'Inter', sans-serif" font-weight="900" font-size="32" letter-spacing="8">
+          <textPath href="#path-bottom-text" startOffset="50%" text-anchor="middle">
+            CABO FRIO - RJ
+          </textPath>
+        </text>
+        <circle cx="250" cy="250" r="162" fill="#d91b24" stroke="#000000" stroke-width="4" />
+        <text x="250" y="168" text-anchor="middle" fill="#ffffff" font-family="'Inter', sans-serif" font-weight="900" font-size="20" letter-spacing="4">BJJ</text>
+        <text x="250" y="338" text-anchor="middle" fill="#ffffff" font-family="'Inter', sans-serif" font-weight="900" font-size="19" letter-spacing="3">SINCE 2003</text>
+        <rect x="20" y="186" width="460" height="128" rx="6" fill="#0a0a0c" stroke="#ffffff" stroke-width="2.5" />
+        <text x="250" y="286" text-anchor="middle" font-family="'Chakra Petch', 'Impact', sans-serif" font-weight="900" font-size="124" letter-spacing="4" fill="#ffffff">
+          THOR
+        </text>
+      </svg>
+    </div>
+
+    <div id="sub-label" class="text-base md:text-2xl font-bold tracking-widest uppercase text-white/80 mb-1 z-10 text-center drop-shadow">
+      THOR BRAZILIAN JIU-JITSU
+    </div>
+    
+    <div id="timer-display" class="font-digital font-black text-[31vw] md:text-[25vw] lg:text-[21vw] leading-none tracking-tight select-none drop-shadow-[0_12px_30px_rgba(0,0,0,0.85)] text-center text-white transition-all z-10">
+      06:00
+    </div>
+
+    <!-- Alerta visual adicional para preparação ou final -->
+    <div id="prep-subtext" class="hidden text-xl md:text-3xl font-black uppercase text-amber-300 tracking-widest animate-pulse z-10 mt-2">
+      PREPARE-SE PARA O ROLA • 5s
+    </div>
+  </main>
+
+  <!-- RODAPÉ: Painel de Controles e Configurações para TV -->
+  <footer class="w-full flex flex-col gap-3 relative z-20">
+    <!-- Linha de Botões de Ação Grandes -->
+    <div class="flex flex-wrap items-center justify-center gap-3 md:gap-5">
+      <button 
+        id="btn-play" 
+        tabindex="1"
+        onclick="toggleStartPause()"
+        class="flex-1 max-w-xs md:max-w-sm py-4 md:py-5 px-6 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xl md:text-2xl tracking-wider shadow-2xl transition-all duration-150 flex items-center justify-center gap-3">
+        <svg id="icon-play" class="w-7 h-7 md:w-9 md:h-9 fill-current" viewBox="0 0 24 24">
+          <path d="M8 5v14l11-7z"/>
+        </svg>
+        <span id="btn-play-label">INICIAR</span>
+      </button>
+
+      <button 
+        id="btn-reset" 
+        tabindex="2"
+        onclick="resetTimer()"
+        class="py-4 md:py-5 px-5 md:px-8 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-lg md:text-xl tracking-wide border border-white/10 shadow-xl transition-all duration-150 flex items-center justify-center gap-2">
+        <svg class="w-5 h-5 md:w-6 md:h-6 fill-current" viewBox="0 0 24 24">
+          <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0020 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 004 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/>
+        </svg>
+        <span>RESET</span>
+      </button>
+
+      <!-- Toggle Botão: Aviso de 1 Minuto -->
+      <button 
+        id="btn-toggle-one-min" 
+        tabindex="3"
+        onclick="toggleOneMinuteAlert()"
+        class="py-4 md:py-5 px-5 md:px-7 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-base md:text-lg border border-white/10 shadow-xl transition-all duration-150 flex items-center gap-3">
+        <div id="toggle-led" class="w-3.5 h-3.5 rounded-full bg-yellow-400 shadow-[0_0_12px_#facc15]"></div>
+        <span id="toggle-label">PALMAS 1 MIN: LIGADO</span>
+      </button>
+
+      <button 
+        id="btn-fullscreen" 
+        tabindex="4"
+        onclick="toggleFullScreen()"
+        title="Tela Cheia"
+        class="py-4 md:py-5 px-5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-base md:text-lg border border-white/10 shadow-xl transition-all duration-150 flex items-center justify-center">
+        <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24">
+          <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Barra de Ajustes Rápidos (Navegável via Controle Remoto) -->
+    <div class="w-full bg-black/50 backdrop-blur-md rounded-2xl border border-white/10 p-2.5 md:p-3 flex flex-wrap items-center justify-around gap-3 text-sm md:text-base">
+      
+      <!-- Tempo de Rola -->
+      <div class="flex items-center gap-2 md:gap-3">
+        <span class="font-bold text-emerald-400 uppercase text-xs md:text-sm">Rola:</span>
+        <div class="flex items-center bg-gray-900 border border-gray-700 rounded-xl overflow-hidden">
+          <button tabindex="5" onclick="adjustSetting('work', -1)" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 font-bold text-base text-emerald-300">-</button>
+          <span id="val-work" class="px-3 py-1.5 font-digital font-bold text-lg md:text-xl text-white min-w-[2.6rem] text-center">6</span>
+          <span class="text-xs text-gray-400 pr-2">min</span>
+          <button tabindex="6" onclick="adjustSetting('work', 1)" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 font-bold text-base text-emerald-300">+</button>
+        </div>
+      </div>
+
+      <!-- Tempo de Descanso -->
+      <div class="flex items-center gap-2 md:gap-3">
+        <span class="font-bold text-rose-400 uppercase text-xs md:text-sm">Descanso:</span>
+        <div class="flex items-center bg-gray-900 border border-gray-700 rounded-xl overflow-hidden">
+          <button tabindex="7" onclick="adjustSetting('rest', -15)" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 font-bold text-base text-rose-300">-</button>
+          <span id="val-rest" class="px-3 py-1.5 font-digital font-bold text-lg md:text-xl text-white min-w-[3.6rem] text-center">1:00</span>
+          <button tabindex="8" onclick="adjustSetting('rest', 15)" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 font-bold text-base text-rose-300">+</button>
+        </div>
+      </div>
+
+      <!-- Quantidade de Rounds -->
+      <div class="flex items-center gap-2 md:gap-3">
+        <span class="font-bold text-sky-400 uppercase text-xs md:text-sm">Rounds:</span>
+        <div class="flex items-center bg-gray-900 border border-gray-700 rounded-xl overflow-hidden">
+          <button tabindex="9" onclick="adjustSetting('rounds', -1)" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 font-bold text-base text-sky-300">-</button>
+          <span id="val-rounds" class="px-3 py-1.5 font-digital font-bold text-lg md:text-xl text-white min-w-[2.6rem] text-center">10</span>
+          <button tabindex="10" onclick="adjustSetting('rounds', 1)" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 font-bold text-base text-sky-300">+</button>
+        </div>
+      </div>
+
+    </div>
+  </footer>
+
+  <script>
+    /* ==========================================================================
+       1. SISTEMA DE ÁUDIO SINTETIZADO (Web Audio API nativo - Sem arquivos externos)
+       ========================================================================== */
+    let audioCtx = null;
+
+    function getAudioContext() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    // Bip simples de contagem curta
+    function playBeep(freq = 600, duration = 0.25, wave = 'sine', gainVal = 0.5) {
+      try {
+        const ctx = getAudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = wave;
+        osc.frequency.setValueAtTime(freq, ctx.currentTime);
+
+        gain.gain.setValueAtTime(gainVal, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start();
+        osc.stop(ctx.currentTime + duration);
+      } catch (e) {
+        console.warn("Audio Context blocked:", e);
+      }
+    }
+
+    // Som de gongo / corneta de início do Rola
+    function playGongStart() {
+      try {
+        const ctx = getAudioContext();
+        const freqs = [523.25, 659.25, 783.99, 1046.50]; // Acorde C maior brilhante
+        freqs.forEach((freq, idx) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          
+          osc.type = idx % 2 === 0 ? 'triangle' : 'sawtooth';
+          osc.frequency.setValueAtTime(freq, ctx.currentTime);
+
+          gain.gain.setValueAtTime(0.35, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 1.8);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.start();
+          osc.stop(ctx.currentTime + 1.8);
+        });
+      } catch (e) {
+        console.warn(e);
+      }
+    }
+
+    // Som duplo de fim de rola / início do descanso
+    function playRestBuzzer() {
+      try {
+        const ctx = getAudioContext();
+        [320, 220].forEach((freq, i) => {
+          const timeOffset = i * 0.28;
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(freq, ctx.currentTime + timeOffset);
+
+          gain.gain.setValueAtTime(0.4, ctx.currentTime + timeOffset);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + timeOffset + 0.35);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.start(ctx.currentTime + timeOffset);
+          osc.stop(ctx.currentTime + timeOffset + 0.35);
+        });
+      } catch (e) {
+        console.warn(e);
+      }
+    }
+
+    // Simulação sonora de 3 Palmas do Tatame (Aviso de 1 Minuto)
+    function playClapEffect() {
+      try {
+        const ctx = getAudioContext();
+        
+        function makeSingleClap(delay) {
+          const startTime = ctx.currentTime + delay;
+
+          // Ruído de impacto
+          const bufferSize = ctx.sampleRate * 0.12;
+          const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1;
+          }
+
+          const noise = ctx.createBufferSource();
+          noise.buffer = buffer;
+
+          // Filtro passa-banda para som oco de estalo
+          const filter = ctx.createBiquadFilter();
+          filter.type = 'bandpass';
+          filter.frequency.setValueAtTime(1100, startTime);
+          filter.Q.setValueAtTime(2.5, startTime);
+
+          const gain = ctx.createGain();
+          gain.gain.setValueAtTime(0.8, startTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.12);
+
+          // Batida tonal adicional
+          const pop = ctx.createOscillator();
+          const popGain = ctx.createGain();
+          pop.type = 'triangle';
+          pop.frequency.setValueAtTime(320, startTime);
+          pop.frequency.exponentialRampToValueAtTime(80, startTime + 0.08);
+
+          popGain.gain.setValueAtTime(0.6, startTime);
+          popGain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.08);
+
+          pop.connect(popGain);
+          popGain.connect(ctx.destination);
+
+          noise.connect(filter);
+          filter.connect(gain);
+          gain.connect(ctx.destination);
+
+          noise.start(startTime);
+          noise.stop(startTime + 0.12);
+          pop.start(startTime);
+          pop.stop(startTime + 0.08);
+        }
+
+        makeSingleClap(0.0);
+        makeSingleClap(0.24);
+        makeSingleClap(0.48);
+
+      } catch (e) {
+        console.warn(e);
+      }
+    }
+
+    /* ==========================================================================
+       2. ESTADO DO APLICATIVO E CONTROLE DO CRONÔMETRO
+       ========================================================================== */
+    let cfgWorkSec = 6 * 60; // 6 minutos
+    let cfgRestSec = 60;     // 1 minuto
+    let cfgRounds = 10;
+    let enableOneMinuteWarning = true;
+
+    let state = 'IDLE';
+    let previousState = 'WORK';
+    let currentRound = 1;
+    let prepCountdown = 5;
+    let secondsLeft = cfgWorkSec;
+    let timerInterval = null;
+
+    const bodyEl = document.body;
+    const timerDisplay = document.getElementById('timer-display');
+    const roundDisplay = document.getElementById('round-display');
+    const totalRoundsBadge = document.getElementById('total-rounds-badge');
+    const statusBadge = document.getElementById('status-badge');
+    const subLabel = document.getElementById('sub-label');
+    const prepSubtext = document.getElementById('prep-subtext');
+    const btnPlay = document.getElementById('btn-play');
+    const btnPlayLabel = document.getElementById('btn-play-label');
+    const iconPlay = document.getElementById('icon-play');
+    const soundIndicatorText = document.getElementById('sound-indicator-text');
+    const bellIcon = document.getElementById('bell-icon');
+    const toggleLed = document.getElementById('toggle-led');
+    const toggleLabel = document.getElementById('toggle-label');
+
+    const valWork = document.getElementById('val-work');
+    const valRest = document.getElementById('val-rest');
+    const valRounds = document.getElementById('val-rounds');
+
+    function formatTime(totalSec) {
+      const m = Math.floor(totalSec / 60).toString().padStart(2, '0');
+      const s = (totalSec % 60).toString().padStart(2, '0');
+      return `${m}:${s}`;
+    }
+
+    function updateSettingsDisplay() {
+      valWork.textContent = Math.floor(cfgWorkSec / 60);
+      valRest.textContent = formatTime(cfgRestSec);
+      valRounds.textContent = cfgRounds;
+      totalRoundsBadge.textContent = cfgRounds;
+    }
+
+    function updateUI() {
+      roundDisplay.innerHTML = `${currentRound} <span class="text-white/40 text-lg md:text-2xl">/</span> <span id="total-rounds-badge">${cfgRounds}</span>`;
+
+      timerDisplay.classList.remove('flash-warning');
+      prepSubtext.classList.add('hidden');
+
+      if (state === 'IDLE') {
+        bodyEl.className = 'mode-idle text-white h-screen w-screen flex flex-col justify-between p-3 md:p-5 lg:p-6 select-none relative';
+        statusBadge.textContent = 'PRONTO';
+        statusBadge.className = 'px-5 py-2 rounded-xl text-lg md:text-2xl lg:text-3xl font-black tracking-wider uppercase bg-white/10 border border-white/20 text-white shadow-inner';
+        subLabel.textContent = 'THOR BRAZILIAN JIU-JITSU';
+        timerDisplay.textContent = formatTime(cfgWorkSec);
+        setPlayButtonState(false, 'INICIAR');
+      } 
+      else if (state === 'PREP') {
+        bodyEl.className = 'mode-prep text-white h-screen w-screen flex flex-col justify-between p-3 md:p-5 lg:p-6 select-none relative';
+        statusBadge.textContent = 'PREPARAÇÃO';
+        statusBadge.className = 'px-5 py-2 rounded-xl text-lg md:text-2xl lg:text-3xl font-black tracking-wider uppercase bg-amber-500/40 border border-amber-300 text-amber-100 shadow-lg';
+        subLabel.textContent = `ROUND ${currentRound} EM BREVE`;
+        prepSubtext.classList.remove('hidden');
+        timerDisplay.textContent = `00:0${prepCountdown}`;
+        setPlayButtonState(true, 'PAUSAR');
+      } 
+      else if (state === 'WORK') {
+        bodyEl.className = 'mode-work text-white h-screen w-screen flex flex-col justify-between p-3 md:p-5 lg:p-6 select-none relative';
+        statusBadge.textContent = 'ROLA / COMBATE';
+        statusBadge.className = 'px-5 py-2 rounded-xl text-lg md:text-2xl lg:text-3xl font-black tracking-wider uppercase bg-emerald-500/30 border border-emerald-400 text-emerald-200 shadow-lg';
+        subLabel.textContent = `ROUND ATUAL: ${currentRound} DE ${cfgRounds}`;
+        timerDisplay.textContent = formatTime(secondsLeft);
+        
+        if (enableOneMinuteWarning && secondsLeft <= 60 && secondsLeft > 0) {
+          timerDisplay.classList.add('flash-warning');
+        }
+        setPlayButtonState(true, 'PAUSAR');
+      } 
+      else if (state === 'REST') {
+        bodyEl.className = 'mode-rest text-white h-screen w-screen flex flex-col justify-between p-3 md:p-5 lg:p-6 select-none relative';
+        statusBadge.textContent = 'DESCANSO';
+        statusBadge.className = 'px-5 py-2 rounded-xl text-lg md:text-2xl lg:text-3xl font-black tracking-wider uppercase bg-rose-500/40 border border-rose-300 text-rose-100 shadow-lg';
+        subLabel.textContent = `DESCANSO • PRÓXIMO: ROUND ${currentRound + 1}`;
+        timerDisplay.textContent = formatTime(secondsLeft);
+        setPlayButtonState(true, 'PAUSAR');
+      } 
+      else if (state === 'PAUSED') {
+        bodyEl.className = 'mode-paused text-white h-screen w-screen flex flex-col justify-between p-3 md:p-5 lg:p-6 select-none relative';
+        statusBadge.textContent = 'PAUSADO';
+        statusBadge.className = 'px-5 py-2 rounded-xl text-lg md:text-2xl lg:text-3xl font-black tracking-wider uppercase bg-gray-500/30 border border-gray-400 text-gray-200 shadow-lg';
+        subLabel.textContent = 'TREINO EM PAUSA';
+        timerDisplay.textContent = previousState === 'PREP' ? `00:0${prepCountdown}` : formatTime(secondsLeft);
+        setPlayButtonState(false, 'CONTINUAR');
+      }
+      else if (state === 'FINISHED') {
+        bodyEl.className = 'mode-idle text-white h-screen w-screen flex flex-col justify-between p-3 md:p-5 lg:p-6 select-none relative';
+        statusBadge.textContent = 'OSS! FINALIZADO';
+        statusBadge.className = 'px-5 py-2 rounded-xl text-lg md:text-2xl lg:text-3xl font-black tracking-wider uppercase bg-sky-500/30 border border-sky-400 text-sky-200 shadow-lg';
+        subLabel.textContent = 'TREINO CONCLUÍDO • THOR BJJ';
+        timerDisplay.textContent = '00:00';
+        setPlayButtonState(false, 'RECOMEÇAR');
+      }
+    }
+
+    function setPlayButtonState(running, label) {
+      btnPlayLabel.textContent = label;
+      if (running) {
+        btnPlay.classList.replace('bg-emerald-600', 'bg-amber-600');
+        btnPlay.classList.replace('hover:bg-emerald-500', 'hover:bg-amber-500');
+        iconPlay.innerHTML = `<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>`;
+      } else {
+        btnPlay.classList.replace('bg-amber-600', 'bg-emerald-600');
+        btnPlay.classList.replace('hover:bg-amber-500', 'hover:bg-emerald-500');
+        iconPlay.innerHTML = `<path d="M8 5v14l11-7z"/>`;
+      }
+    }
+
+    /* ==========================================================================
+       4. MECÂNICA DE TRANSIÇÃO E RELÓGIO (TICK)
+       ========================================================================== */
+    function toggleStartPause() {
+      getAudioContext();
+
+      if (state === 'FINISHED') {
+        resetTimer();
+        startPreparation();
+        return;
+      }
+
+      if (state === 'WORK' || state === 'REST' || state === 'PREP') {
+        previousState = state;
+        state = 'PAUSED';
+        clearInterval(timerInterval);
+        timerInterval = null;
+        updateUI();
+      } else if (state === 'PAUSED') {
+        state = previousState;
+        timerInterval = setInterval(handleTick, 1000);
+        updateUI();
+      } else if (state === 'IDLE') {
+        startPreparation();
+      }
+    }
+
+    function startPreparation() {
+      state = 'PREP';
+      prepCountdown = 5;
+      playBeep(480, 0.25, 'triangle', 0.4);
+      updateUI();
+      
+      clearInterval(timerInterval);
+      timerInterval = setInterval(handleTick, 1000);
+    }
+
+    function handleTick() {
+      if (state === 'PREP') {
+        prepCountdown--;
+        if (prepCountdown > 0) {
+          playBeep(480, 0.25, 'triangle', 0.4);
+        } else {
+          state = 'WORK';
+          secondsLeft = cfgWorkSec;
+          playGongStart();
+        }
+        updateUI();
+        return;
+      }
+
+      if (state === 'WORK') {
+        secondsLeft--;
+
+        // Aviso de 1 minuto restante (3 palmas sintetizadas no tatame)
+        if (enableOneMinuteWarning && secondsLeft === 60) {
+          playClapEffect();
+        }
+
+        // Bips regressivos nos últimos 3 segundos (3, 2, 1)
+        if (secondsLeft > 0 && secondsLeft <= 3) {
+          playBeep(520, 0.2, 'sine', 0.5);
+        }
+
+        // Fim de round
+        if (secondsLeft <= 0) {
+          if (cfgRestSec > 0 && currentRound < cfgRounds) {
+            state = 'REST';
+            secondsLeft = cfgRestSec;
+            playRestBuzzer();
+          } else if (currentRound < cfgRounds) {
+            currentRound++;
+            secondsLeft = cfgWorkSec;
+            playGongStart();
+          } else {
+            finishWorkout();
+            return;
+          }
+        }
+        updateUI();
+        return;
+      }
+
+      if (state === 'REST') {
+        secondsLeft--;
+
+        if (secondsLeft > 0 && secondsLeft <= 3) {
+          playBeep(480, 0.2, 'triangle', 0.4);
+        }
+
+        if (secondsLeft <= 0) {
+          currentRound++;
+          state = 'WORK';
+          secondsLeft = cfgWorkSec;
+          playGongStart();
+        }
+        updateUI();
+      }
+    }
+
+    function finishWorkout() {
+      clearInterval(timerInterval);
+      timerInterval = null;
+      state = 'FINISHED';
+      playGongStart();
+      setTimeout(playRestBuzzer, 800);
+      updateUI();
+    }
+
+    function resetTimer() {
+      clearInterval(timerInterval);
+      timerInterval = null;
+      state = 'IDLE';
+      currentRound = 1;
+      secondsLeft = cfgWorkSec;
+      prepCountdown = 5;
+      updateUI();
+    }
+
+    /* ==========================================================================
+       5. CONFIGURAÇÕES & CONTROLE DE 1 MINUTO
+       ========================================================================== */
+    function toggleOneMinuteAlert() {
+      enableOneMinuteWarning = !enableOneMinuteWarning;
+      if (enableOneMinuteWarning) {
+        soundIndicatorText.textContent = "1 MIN: ON";
+        toggleLabel.textContent = "PALMAS 1 MIN: LIGADO";
+        toggleLed.className = "w-3.5 h-3.5 rounded-full bg-yellow-400 shadow-[0_0_12px_#facc15]";
+        bellIcon.classList.remove('opacity-20');
+        playClapEffect();
+      } else {
+        soundIndicatorText.textContent = "1 MIN: OFF";
+        toggleLabel.textContent = "PALMAS 1 MIN: DESLIGADO";
+        toggleLed.className = "w-3.5 h-3.5 rounded-full bg-gray-500 shadow-none";
+        bellIcon.classList.add('opacity-20');
+      }
+    }
+
+    function adjustSetting(type, step) {
+      if (state !== 'IDLE' && state !== 'PAUSED') return;
+
+      if (type === 'work') {
+        let minutes = Math.floor(cfgWorkSec / 60) + step;
+        if (minutes < 1) minutes = 1;
+        if (minutes > 30) minutes = 30;
+        cfgWorkSec = minutes * 60;
+        if (state === 'IDLE') secondsLeft = cfgWorkSec;
+      } 
+      else if (type === 'rest') {
+        cfgRestSec += step;
+        if (cfgRestSec < 0) cfgRestSec = 0;
+        if (cfgRestSec > 300) cfgRestSec = 300;
+      } 
+      else if (type === 'rounds') {
+        cfgRounds += step;
+        if (cfgRounds < 1) cfgRounds = 1;
+        if (cfgRounds > 50) cfgRounds = 50;
+      }
+
+      updateSettingsDisplay();
+      updateUI();
+    }
+
+    function toggleFullScreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen().catch(() => {});
+        }
+      }
+    }
+
+    /* ==========================================================================
+       6. SUPORTE TOTAL AO CONTROLE REMOTO DA TV
+       ========================================================================== */
+    window.addEventListener('keydown', (e) => {
+      const code = e.keyCode;
+      const key = e.key;
+
+      if (key === ' ' || key === 'Enter' || code === 13 || code === 32) {
+        if (!['BUTTON', 'INPUT'].includes(document.activeElement.tagName)) {
+          e.preventDefault();
+          toggleStartPause();
+        }
+      } 
+      else if (key === 'm' || key === 'M' || key === 'ColorF0Yellow' || code === 405) {
+        toggleOneMinuteAlert();
+      }
+      else if (key === 'Escape' || code === 27) {
+        resetTimer();
+      }
+    });
+
+    window.onload = () => {
+      updateSettingsDisplay();
+      updateUI();
+      btnPlay.focus();
+    };
+  </script>
+</body>
+</html>
